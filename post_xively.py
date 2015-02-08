@@ -1,6 +1,11 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+""" 
+requirements xively
+	url: https://github.com/xively/xively-python
+"""
+
 import xively
 import datetime
 import random
