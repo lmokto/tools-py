@@ -50,10 +50,10 @@ def open_file(filename):
 def main(pathexample):
 	
 	"""	
-		Paso como parametro un carpeta, me da informacion de los archivos, luego abre uno por uno recursivamente, 
-		y borra su contenido. 
+	Paso como parametro un carpeta, me da informacion de los archivos, luego abre uno por uno recursivamente, 
+	y borra su contenido. 
 
-		python.py cleansync.py "carpeta"
+	python.py cleansync.py "carpeta"
 	"""
 	
 	listdirfun(pathexample)
