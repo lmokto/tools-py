@@ -14,6 +14,8 @@ def extract(host, path, label):
 	conn.putrequest("GET", path)
 	header = {"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_7_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/32.0.1700.77 Safari/537.36", "Cache-Control": "no-cache", }
 	conn.endheaders()
+	for key, value in header.iteritems():
+		conn.putheader({key: value})
 	res = conn.getresponse()
 	if (res.status == 200):
 		source = res.read()
