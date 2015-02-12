@@ -25,9 +25,7 @@ def extract(host, path, label):
 		return dochtml.cssselect(label)[0].text
 	else:
 		conn.close()
-		print res.status
-		raise("host fallo")
-
+		raise ValueError("fallo ", res.getheaders())
 
 result = extract(host, path, label)
 print result
