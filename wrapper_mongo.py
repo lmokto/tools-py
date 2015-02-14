@@ -158,7 +158,7 @@ class Mongo(object):
     try:
       self.cursores[cursor] = True
       builc = "self.__M[self.config['db']][self.config['table']].{0}".format(func)
-      
+      return eval(builc)
     except self.CursorNotFound:
       self.cursores[cursor] = False
       raise ValueError("of correct type {}".format(self.CursorNotFound))
