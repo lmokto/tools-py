@@ -3,10 +3,14 @@
 
 import csv
 import sys
+import unicodedata
 import pymongo
 import time
-import types
 from bson.objectid import ObjectId
+
+def elimina_tildes(s):
+    #elimina_tildes(u'cadenaconacento') --> u'cadenasinacento'
+    return ''.join((c for c in unicodedata.normalize('NFD', s) if unicodedata.category(c) != 'Mn')).encode('utf-8')
 
 class Mongo(object):
 
@@ -153,12 +157,25 @@ class Mongo(object):
     self.status['backenlace'] += 1
     return self.enlace(value[1], value[2], new=True)
 
-  def __buildC(self, cursor, func):
+  #import ipdb; ipdb.set_trace();
+  #from pudb import set_trace; set_trace()
+  def __buildC(self, cursor, func=None):
     """ listquerys, find(), find_one(filter), find_id({'_id':_id}), find(query)"""
+    # self.cursores = {"CQ": False, "CFI": False, "C":False, "CF": False, "CFO":False}
+    m = self.__M[self.config['db']][self.config['table']]
     try:
-      self.cursores[cursor] = True
-      builc = "self.__M[self.config['db']][self.config['table']].{0}".format(func)
-      return eval(builc)
+      if cursor == "CQ": 
+        self.cursores[cursor] = True
+        return m.find(func)
+      elif cursor == "CFI": 
+        self.cursores[cursor] = True
+        return m.find_id(func)
+      elif cursor == "CF":
+        self.cursores[cursor] = True
+        return m.find()
+      elif cursor =="CFO":
+        self.cursores[cursor] = True
+        return m.find_one(func)
     except self.CursorNotFound:
       self.cursores[cursor] = False
       raise ValueError("of correct type {}".format(self.CursorNotFound))
@@ -179,20 +196,34 @@ class Mongo(object):
 
   def querying(self, query={}):
     """ result = mongo.querying({"script" : "string"})"""
-    return self.__buildC("CQ", "find_one({0})".format(filtro))
+    return self.__buildC("CQ", query)
 
   def findOne(self, filtro):
     """ docs """
-    return self.__buildC("CFO", "find_one({0})".format(filtro))
+    return self.__buildC("CFO", filtro)
 
-  def findID(self, _id=int):
+  def findID(self, _id):
     """ docs """
-    return self.__buildC("CFI", "find_id({'_id':{0}})".format(_id))
+    return self.__buildC("CFI", int(_id))
 
   def find(self):
     """ docs """
-    return self.__buildC("CF", "find()")
+    return self.__buildC("CF")
 
   def info(self):
     """ docs """    
     return self.config, self.status, self.cursores
+
+
+def main():
+
+  mongo_db = Mongo("127.0.0.1", 27017)
+  mongo_db.connection()
+  mongo_db.enlace("name_db", "name_table")
+  mongo_db.insert({"key1": "value1", "key2": "value2", "keyN": "valueN"})
+  itercolls = mongo_db.find()
+  print next(itercolls)
+  print mongo_db.info()
+
+if __name__ == '__main__':
+  main()
