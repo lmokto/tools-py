@@ -6,3 +6,4 @@ optparse=1.5.3
 pymongo=2.7.1
 pudb=2015.2
 ipdb=0.8
+redis=2.10.3
