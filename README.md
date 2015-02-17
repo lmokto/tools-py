@@ -3,8 +3,10 @@
 carpeta con scripts utilizados diariamente
 
 ###
-requeriments
+requirements
 
+´´´
 servidor en mongodb
 servidor en redis
+´´´
 
