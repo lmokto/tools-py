@@ -8,12 +8,9 @@ import pymongo
 import time
 from bson.objectid import ObjectId
 
-def elimina_tildes(s):
-    #elimina_tildes(u'cadenaconacento') --> u'cadenasinacento'
-    return ''.join((c for c in unicodedata.normalize('NFD', s) if unicodedata.category(c) != 'Mn')).encode('utf-8')
-
 class Mongo(object):
-
+  #from pudb import set_trace; set_trace()
+  
   ExecutionTimeout = pymongo.errors.ExecutionTimeout
   TimeoutError = pymongo.errors.TimeoutError
   OperationFailure = pymongo.errors.OperationFailure
@@ -22,23 +19,23 @@ class Mongo(object):
   BulkWriteError = pymongo.errors.BulkWriteError
   CursorNotFound = pymongo.errors.CursorNotFound
   
-  def __init__(self, server, port, db=None, table=None):
+  def __init__(self, server="localhost", port=27017, db=None, table=None):
     """
       docs
     """
+    self.config = {"server": server, "port": port, "db": db, "table": table}
     self.__M = None
-    self.buildcursor()
-    self.buildstatus()
     self.new_db = None
     self.new_table = None
-    self.config = {"server": server, "port": port, "db": db, "table": table}
+    self.__enlc = 0
+    self.buildcursor()
+    self.buildstatus()
   
   def buildcursor(self):
     """
       docs
     """
     self.cursores = {"CQ": False, "CFI": False, "C":False, "CF": False, "CFO":False}
-    self.__C = None
     self.__CF = None
     self.__CFO = None
     self.__CFI = None
@@ -74,7 +71,7 @@ class Mongo(object):
     """
     docs
     """
-    assert self.status['connected'].get('isalive')
+    assert hasattr(self.__M, 'database_names')
     return self.__M.database_names()
 
   def created(self, new_db, new_table):
@@ -95,14 +92,17 @@ class Mongo(object):
   def __enval(self, val):
     """
       docs
-    """  
-    self.status['enlace'].append({time.ctime()[11:19], self.config['db'], self.config['table']})
+    """
+    self.status['enlace'].append({"time":time.ctime()[11:19], \
+                                  "db": self.config['db'], \
+                                  "table": self.config['table']})
     return val
   
   def enlace(self, db, table, new=False):
     """
       docs
     """
+    self.__enlc += 1
     if (self.config["db"] and self.config["table"]) == None:
       self.config["db"] = db
       self.config["table"] = table
@@ -146,36 +146,41 @@ class Mongo(object):
         self.__M[self.config["db"]][self.config["table"]].insert(dictionary)
         return self.__inscount()
     except (self.CollectionInvalid, self.BulkWriteError):
-      print ValueError("CollectionInvalid o Bulk Write Error")
-  
-  def bulkinsert(self):
-    pass
+      raise ValueError("CollectionInvalid o Bulk Write Error")
   
   def backenlace(self):
     """ docs """
-    value = list(self.lastenlace())
-    self.status['backenlace'] += 1
-    return self.enlace(value[1], value[2], new=True)
+    if self.__enlc >= 1:
+      value = self.lastenlace()
+      self.status['backenlace'] += 1
+      return self.enlace(value['db'], value['table'], new=True)
+    else:
+      raise ValueError("conectado en mismo enlace")
+
+  def listenlaces(self):
+    return self.status['enlace']
 
   #import ipdb; ipdb.set_trace();
-  #from pudb import set_trace; set_trace()
   def __buildC(self, cursor, func=None):
     """ listquerys, find(), find_one(filter), find_id({'_id':_id}), find(query)"""
     # self.cursores = {"CQ": False, "CFI": False, "C":False, "CF": False, "CFO":False}
-    m = self.__M[self.config['db']][self.config['table']]
     try:
       if cursor == "CQ": 
         self.cursores[cursor] = True
-        return m.find(func)
+        self.__CQ = self.__M[self.config['db']][self.config['table']].find(func)
+        return self.__CQ.clone()
       elif cursor == "CFI": 
         self.cursores[cursor] = True
-        return m.find_id(func)
+        self.__CFI = self.__M[self.config['db']][self.config['table']].find_id(func)
+        return self.__CFI.clone()
       elif cursor == "CF":
         self.cursores[cursor] = True
-        return m.find()
+        self.__CF = self.__M[self.config['db']][self.config['table']].find()
+        return self.__CF.clone()
       elif cursor =="CFO":
         self.cursores[cursor] = True
-        return m.find_one(func)
+        self.__CFO = self.__M[self.config['db']][self.config['table']].find_one(func)
+        return self.__CFO.clone()
     except self.CursorNotFound:
       self.cursores[cursor] = False
       raise ValueError("of correct type {}".format(self.CursorNotFound))
@@ -185,15 +190,6 @@ class Mongo(object):
     islives = [(key, value) for key, value in self.cursores.iteritems() if value == True]
     return islives
   
-  def clone(self, cursor):
-    """ docs """
-    namec = cursor
-    islive = self.cursores.get(cursor)
-    if islive:
-      return eval("self.__{0}".format(namec)).clone()
-    else:
-      return self.isliveC()
-
   def querying(self, query={}):
     """ result = mongo.querying({"script" : "string"})"""
     return self.__buildC("CQ", query)
@@ -211,9 +207,16 @@ class Mongo(object):
     return self.__buildC("CF")
 
   def info(self):
-    """ docs """    
+    """ docs """
     return self.config, self.status, self.cursores
 
+  def exit(self):
+    """ docs """
+    self.status['connected']['isalive'] = False
+    try:
+      self.__M.disconnect()
+    except:
+      raise ValueError("disconnected")
 
 def main():
 
