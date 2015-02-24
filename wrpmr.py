@@ -144,6 +144,7 @@ class wrpMR(MongoClient):
 		MongoClient.__init__(self, host="localhost", port=27017)
 		self.__r1 = StrictRedis(db=1)
 		self.__r2 = StrictRedis(db=2)
+		self.__enl = None
 
 	def __hash(self, insert):
 		format = str(insert).replace(" ", "")
@@ -161,45 +162,80 @@ class wrpMR(MongoClient):
 			flag dlt = 0 delete (se activa cuando se elimino un registro)
 		"""
 		flags = {"crd": 0 ,"try": 0, "rde": 0, "crde": 0, "upd": 0, "cupd": 0, "dlt":0}
-		result = self.r2.hmset(str(key), flags)
+		result = self.__r2.hmset(str(key), flags)
 		return result
 	
 	def enlace(self, **kwargs):
-		#aqui generamos el enlace a la db de mongodb+table
-		pass
+		"""
+			enlace(db="midb", table="mitable")
+		"""
+
+		self.__db = kwargs.get("db")
+		self.__cls = kwargs.get("table")
+		self.__enl = self[self.__db][self.__cls]
 
 	def created(self, **kwargs):
-		hashkey = self.__hash(kwargs.get("insert"))
-		islive = self.r2.hexists(hashkey, "crd")
-		if not islive:
-			self.enlace.insert() # cuando se haya completado esto de manera exitosa, asignamos flags
+		"""
+			created(insert="miregistro")
+		"""
+		
+		registro = kwargs.get("insert")
+		hashkey = self.__hash(registro)
+		islive = self.__r2.hexists(hashkey, "crd")
+		
+		if not islive and self.__enl != None:
+			self.__enl.insert(registro) # cuando se haya completado esto de manera exitosa, asignamos flags
 			result = self.__setflags(hashkey)
-			self.r2.hset(hashkey, "crd", "1")
+			self.__r2.hset(hashkey, "crd", "1")
+		
 		elif islive:
-			keyflags = self.r2.hgetall(hashkey)
+			keyflags = self.__r2.hgetall(hashkey)
 			if keyflags['crd'] == 1 and keyflags['dlt'] == 0:
-				self.r2.hincrby(hashkey, "try")
+				self.__r2.hincrby(hashkey, "try")
 			if keyflags['crd'] == 1 and keyflags['dlt'] == 1:
-				self.r2.hincrby(hashkey, "try")
+				self.__r2.hincrby(hashkey, "try")
 
-	def read(self, hashkey=None):
-		assert self.r2.hexists(hashkey, "crd")
-		flags = self.r2.hgetall(hashkey)
+	def read(self, hashkey=None, **kwargs):
+		"""
+			read(hashkey="ObjectID", read="find_one")
+			read(hashkey="ObjectID", read="find")
+			read(hashkey="ObjectID", read="find", query={})
+		"""
+		# 
+		# si quiero asignar un tipo de consulta, find({tipo_query})
+		# si quiero asginar una consulta total, find()
+		# si quiero asignar una consulta unica, find_one()
+		# efectuamos la consulta y el tipo y luego enviamos los datos al iterador next()
+		# tengo tres tipos de consultas, find() find_one(), find({query}), como cacheo todo?
+		# 
+		# si hago una consulta entera tomo el hashkey, mediante el full name a quien le pregunto, dame toodo
+		# 
+		# si hago una consulta entera + query, tomo el hashkey de la db+table+query
+		# 
+		# 
+		exists = self.__r2.hexists(hashkey, "crd")
+		read = kwargs.get("read")
+		querys = kwargs.get("query")
+
+		flags = self.__r2.hgetall(hashkey)
 		update = int(flags['crd']) + int(flags['rde']) + (flags['upd'])
+		
 		if flags['crd'] == 1 and flags['rde'] == 0:
-			registro = self.enlace.find_one({'_id':haskey})[0]
-			self.r1.set(hashkey, registro)
-			self.r2.hincrby(hashkey, "rde")
-			self.r2.hincrby(hashkey, "crde")
+			registro = self.__enl.find_one({'_id':hashkey})[0]
+			self.__r1.set(hashkey, registro)
+			self.__r2.hincrby(hashkey, "rde")
+			self.__r2.hincrby(hashkey, "crde")
+
 		elif flags['crd'] == 1 and flags['rde'] == 1 and flags['upd'] == 0:
-			registro = self.r1.get(hashkey)
-			self.r2.hincrby(hashkey, "crde")
+			registro = self.__r1.get(hashkey)
+			self.__r2.hincrby(hashkey, "crde")
 			return registro
+		
 		elif update is 3:
-			newregistro = self.enlace.find_one({'_id':haskey})[0]
-			self.r1.set(hashkey, newregistro?)
-			self.r2.hincrby(hashkey, "crde")
-			self.r2.hset(hashkey, 'upd', '0')
+			newregistro = self.__enl.find_one({'_id':hashkey})[0]
+			self.__r1.set(hashkey, newregistro)
+			self.__r2.hincrby(hashkey, "crde")
+			self.__r2.hset(hashkey, 'upd', '0')
 			return newregistro
 
 	def next(self):
